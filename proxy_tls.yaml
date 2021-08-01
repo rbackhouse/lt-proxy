@@ -25,10 +25,8 @@ static_resources:
                   cluster: locationtracker
                   timeout: 0s
           http_filters:
-          - name: envoy.grpc_web          
           - name: envoy.filters.http.router
             typed_config: {}
-
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:
@@ -40,6 +38,44 @@ static_resources:
               private_key:
                 filename: /etc/envoy/locationtracker-key.pem
             alpn_protocols: ["h2"]  
+  - address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 9444
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          codec_type: AUTO
+          stat_prefix: ingress_http
+          upgrade_configs:
+          - upgrade_type: websocket
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: backend
+              domains:
+              - "*"
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  cluster: wslocationtracker
+                  timeout: 0s
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config: {}
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          common_tls_context:
+            tls_certificates:
+            - certificate_chain:
+                filename: /etc/envoy/locationtracker-crt.pem
+              private_key:
+                filename: /etc/envoy/locationtracker-key.pem
 
   clusters:
     - name: locationtracker
@@ -56,6 +92,19 @@ static_resources:
                 socket_address:
                   address: locationtracker.default.svc.cluster.local
                   port_value: 8082
+    - name: wslocationtracker
+      connect_timeout: 30s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: wslocationtracker
+        endpoints:
+        - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: locationtracker.default.svc.cluster.local
+                  port_value: 8081
 
 admin:
   address:
