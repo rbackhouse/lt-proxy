@@ -59,9 +59,14 @@ static_resources:
               - "*"
               routes:
               - match:
-                  prefix: "/"
+                  prefix: "/ws"
                 route:
                   cluster: wslocationtracker
+                  timeout: 0s
+              - match:
+                  prefix: "/"
+                route:
+                  cluster: ltweb
                   timeout: 0s
           http_filters:
           - name: envoy.filters.http.router
@@ -105,6 +110,19 @@ static_resources:
                 socket_address:
                   address: locationtracker.default.svc.cluster.local
                   port_value: 8081
+    - name: ltweb
+      connect_timeout: 30s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: ltweb
+        endpoints:
+        - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: ltweb.default.svc.cluster.local
+                  port_value: 80
 
 admin:
   address:
